@@ -11,7 +11,7 @@ def fetch_data(limit=500000, save_path="lapd_offenses_victims_merged.csv"):
     # If CSV already exists, read it and apply merged schema instead of querying
     if os.path.exists(save_path):
         print(f"Loading data from existing CSV: {save_path}")
-        df = pd.read_csv(save_path)
+        df = pd.read_csv(save_path, low_memory=False)
         return df
     
     client = Socrata(DOMAIN, None)
@@ -61,6 +61,35 @@ def cast_types(df):
         # Convert HHMM integer format (e.g., 855 -> 08:55, 2150 -> 21:50)
         df["time_occ"] = df["time_occ"].astype(str).str.zfill(4)  # Pad with zeros
         df["time_occ"] = pd.to_datetime(df["time_occ"], format="%H%M", errors="coerce").dt.time
+
+    if "vict_age" in df.columns:
+        # Convert victim age to numeric, coerce errors to NaN
+        df["vict_age"] = pd.to_numeric(df["vict_age"], errors="coerce").astype("Int64")
+
+    if "area_name" in df.columns:
+        # Convert to categorical for memory efficiency
+        df["area_name"] = df["area_name"].astype("category")
+        df.drop(columns=["area"], inplace=True)
+
+    if "nibr_description" in df.columns:
+        # Convert to categorical for memory efficiency
+        df["nibr_description"] = df["nibr_description"].astype("category")
+        df.drop(columns=["nibr_code"], inplace=True)
+
+    if "premis_desc" in df.columns:
+        # Convert to categorical for memory efficiency
+        df["premis_desc"] = df["premis_desc"].astype("category")
+        df.drop(columns=["premis_cd"], inplace=True)
+
+    if "weapon_desc" in df.columns:
+        # Convert to categorical for memory efficiency
+        df["weapon_desc"] = df["weapon_desc"].astype("category")
+        df.drop(columns=["weapon_used_cd"], inplace=True)
+
+    if "status_desc" in df.columns:
+        # Convert to categorical for memory efficiency
+        df["status_desc"] = df["status_desc"].astype("category")
+        df.drop(columns=["status"], inplace=True)
 
     # Convert Yes/No columns to boolean
     yes_no_cols = [
