@@ -3,6 +3,22 @@ DOMAIN = "data.lacity.org"
 OFFENSES_ID = "y8y3-fqfu"
 VICTIMS_ID = "gqf2-vm2j"
 
+DESC_VARIABLES = [
+    "area_name",
+    "totaloffensecount",
+    "group",
+    "nibr_description",
+    "crime_against",
+    "premis_desc",
+    "status_desc",
+    'totalvictimcount', 'victim_shot', 'domestic_violence_crime',
+    'hate_crime', 'gang_related_crime', 'transit_related_crime',
+    'homeless_victim_crime', 'homeless_suspect_crime',
+    'homeless_arrestee_crime', 'weapon_desc',
+    'vict_age',
+    'vict_descent', 'vict_sex', 'victim_type'
+]
+
 SCHEMA = {
 "offenses": {
     "caseno": "string",
