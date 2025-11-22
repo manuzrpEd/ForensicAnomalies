@@ -4,14 +4,14 @@ from sodapy import Socrata
 from utils import DOMAIN, OFFENSES_ID, SCHEMA, VICTIMS_ID
 
 
-def fetch_data(limit=500000, save_path="lapd_offenses_victims_merged.csv"):
+def fetch_data(limit=500000, save_path="lapd_offenses_victims_merged.parquet"):
     """
-    Fetch offenses and victims from Socrata, merge on caseno, and save to CSV.
+    Fetch offenses and victims from Socrata, merge on caseno, and save to parquet.
     """
-    # If CSV already exists, read it and apply merged schema instead of querying
+    # If parquet already exists, read it and apply merged schema instead of querying
     if os.path.exists(save_path):
-        print(f"Loading data from existing CSV: {save_path}")
-        df = pd.read_csv(save_path, low_memory=False)
+        print(f"Loading data from existing parquet: {save_path}")
+        df = pd.read_parquet(save_path)
         return df
     
     client = Socrata(DOMAIN, None)
@@ -32,7 +32,7 @@ def fetch_data(limit=500000, save_path="lapd_offenses_victims_merged.csv"):
     # merge
     df = df_off.merge(df_vic, on="caseno", how="left")
     df = cast_types(df)
-    df.to_csv(save_path, index=False)
+    df.to_parquet(save_path, index=False)
 
     return df
 
@@ -90,6 +90,23 @@ def cast_types(df):
         # Convert to categorical for memory efficiency
         df["status_desc"] = df["status_desc"].astype("category")
         df.drop(columns=["status"], inplace=True)
+
+    # Convert mixed-type string columns to string (handles str/float NaN issue)
+    string_cols = [
+        "rpt_dist_no",
+        "group",
+        "crime_against",
+        "premis_desc",
+        "weapon_desc",
+        "uniquevictimno",
+        "vict_descent",
+        "vict_sex",
+        "victim_type"
+    ]
+    
+    for col in string_cols:
+        if col in df.columns:
+            df[col] = df[col].astype("object")
 
     # Convert Yes/No columns to boolean
     yes_no_cols = [
