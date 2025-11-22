@@ -39,7 +39,7 @@ SCHEMA = {
     "status": "string",
     "status_desc": "string",
     "totalvictimcount": "int",
-    "victim_shot": "str",               # Yes/No
+    "victim_shot": "str",
     "domestic_violence_crime": "str",
     "hate_crime": "str",
     "gang_related_crime": "str",
@@ -61,7 +61,7 @@ SCHEMA = {
     "rpt_dist_no": "string",
     "totalvictimcount": "int",
     "victim_type": "string",
-    "victim_shot": "str",           # Yes/No
+    "victim_shot": "str",
     "status": "string",
     "status_desc": "string",
     "vict_age": "int",
