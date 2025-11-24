@@ -19,6 +19,12 @@ DESC_VARIABLES = [
     'vict_descent', 'vict_sex', 'victim_type'
 ]
 
+COLS_TO_DROP = [
+        'caseno', 'uniquebrno', 'uniquevictimno', 'rpt_dist_no',
+        'date_rptd', 'uniquenibrno'
+        , "time_occ"
+    ]
+
 SCHEMA = {
 "offenses": {
     "caseno": "string",
@@ -69,3 +75,8 @@ SCHEMA = {
     "vict_descent": "string"
     }
 }
+
+GROUPING_CONFIG = {
+            'totaloffensecount': {'threshold': 3, 'group_name': '3+'},
+            'totalvictimcount': {'threshold': 4, 'group_name': '4+'},
+        }
