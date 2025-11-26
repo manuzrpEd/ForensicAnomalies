@@ -32,6 +32,9 @@ def fetch_data(limit=500000, save_path="lapd_offenses_victims_merged.parquet"):
     # merge
     df = df_off.merge(df_vic, on="caseno", how="left")
     df = cast_types(df)
+    # keep data with date_occ after 2000-01-01
+    df['date_occ'] = pd.to_datetime(df['date_occ'], errors='coerce')
+    df = df[df['date_occ'] >= pd.Timestamp('2024-01-01')]
     df.to_parquet(save_path, index=False)
 
     return df

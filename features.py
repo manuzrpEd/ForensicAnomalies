@@ -1,8 +1,10 @@
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 import pandas as pd
+import seaborn as sns
 from utils import COLS_TO_DROP, GROUPING_CONFIG
 
-def generate_features(df):
+def generate_features(df, save_path="lapd_offenses_victims_features.pkl"):
     """
     Generate features for anomaly detection.
     Remove non-predictive columns, create temporal features, and encode variables.
@@ -16,6 +18,7 @@ def generate_features(df):
         df['day_of_week'] = df['date_occ'].dt.dayofweek
         df['is_weekend'] = df['day_of_week'].isin([5, 6]).astype(int)
         df = df.drop(columns=['date_occ','day_of_week'])
+        df['month'] = df['month'].astype('category')
 
     # Bin vict_age into age groups
     if 'vict_age' in df.columns:
@@ -46,6 +49,10 @@ def generate_features(df):
 
     # Group residual categories
     df = group_residual_categories(df)
+
+    # Save Feature DataFrame
+    df = df.drop_duplicates()
+    df.to_pickle(save_path)
 
     
     return df
@@ -232,3 +239,78 @@ def check_data_quality(df):
         print(f"\n✓ No issues found - Data is balanced!")
     
     return report
+
+def plot_crime_timeline(
+    df, 
+    date_column='date_occ', 
+    title="Number of Reported Crimes Over Time (LAPD)",
+    moving_avg_days=30,
+    figsize=(15, 6),
+    color='#2c3e50',
+    ma_color='red'
+):
+    """
+    Plot the daily number of crime observations over time with a moving average.
+    
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame containing the crime records
+    date_column : str, default 'date_occ'
+        Name of the column containing the occurrence date
+    title : str
+        Plot title
+    moving_avg_days : int or None
+        Number of days for centered moving average (set None to disable)
+    figsize : tuple
+        Figure size
+    color : str
+        Color of the daily line
+    ma_color : str
+        Color of the moving average line
+        
+    Returns
+    -------
+    matplotlib.axes.Axes
+    """
+    if date_column not in df.columns:
+        raise ValueError(f"Column '{date_column}' not found in DataFrame. Available: {list(df.columns)}")
+    
+    df = df.copy()
+    df[date_column] = pd.to_datetime(df[date_column], errors='coerce')
+    df = df.dropna(subset=[date_column])
+    
+    # Count crimes per day
+    daily_counts = df[date_column].dt.floor('D').value_counts().sort_index()
+    
+    # Plot
+    plt.figure(figsize=figsize)
+    sns.set_style("whitegrid")
+    
+    daily_counts.plot(linewidth=1.1, color=color, alpha=0.8, label='Daily Count')
+    
+    if moving_avg_days is not None and len(daily_counts) > moving_avg_days:
+        ma = daily_counts.rolling(window=moving_avg_days, center=True).mean()
+        ma.plot(linewidth=2.8, color=ma_color, label=f'{moving_avg_days}-Day Moving Average')
+    
+    plt.title(title, fontsize=16, fontweight='bold', pad=20)
+    plt.xlabel('Date', fontsize=12)
+    plt.ylabel('Number of Reported Crimes', fontsize=12)
+    plt.legend(fontsize=11)
+    plt.ylim(0, None)
+    
+    # Nice date ticks
+    ax = plt.gca()
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+    plt.xticks(rotation=45)
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print summary
+    print(f"Date range          : {daily_counts.index.min().date()} → {daily_counts.index.max().date()}")
+    print(f"Total days          : {len(daily_counts)}")
+    print(f"Average daily crimes: {daily_counts.mean():.0f}")
+    print(f"Peak day            : {daily_counts.idxmax().date()} → {daily_counts.max():,} crimes")
+    print(f"Lowest day          : {daily_counts.idxmin().date()} → {daily_counts.min():,} crimes")
