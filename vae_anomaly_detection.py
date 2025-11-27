@@ -6,8 +6,9 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
-from sklearn.preprocessing import LabelEncoder, MinMaxScaler
+from torch.utils.data import Dataset
+from scipy.spatial.distance import cdist
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 
 
@@ -16,7 +17,13 @@ from sklearn.model_selection import train_test_split
 # ----------------------------------------------------
 class CrimeDataset(Dataset):
     def __init__(self, X):
+        # Existing code to handle DataFrame vs. array
         arr = X.values if isinstance(X, pd.DataFrame) else X
+        
+        # 🔑 The fix: Explicitly convert the array to float64
+        arr = arr.astype(np.float64) 
+        
+        # Now, create the PyTorch FloatTensor
         self.X = torch.FloatTensor(arr)
 
     def __len__(self):
@@ -44,29 +51,30 @@ def load_and_prepare_data(filepath, test_size=0.2, random_state=42):
     else:
         raise ValueError("Unsupported file extension.")
 
-    # Split early
-    train_df, test_df = train_test_split(df, test_size=test_size, random_state=random_state)
-
     # Identify columns
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     cat_cols = df.select_dtypes(exclude=[np.number]).columns.tolist()
 
-    # Label encoders for categoricals
-    label_encoders = {}
-    for col in cat_cols:
-        le = LabelEncoder()
-        train_df[col] = le.fit_transform(train_df[col].astype(str))
-        test_df[col] = le.transform(test_df[col].astype(str))
-        label_encoders[col] = le
+    # One-Hot Encode categorical features
+    # This is crucial for neural networks to avoid learning false ordinal relationships.
+    df_processed = pd.get_dummies(df, columns=cat_cols, dummy_na=False)
+
+    # Split after one-hot encoding to ensure train and test have the same columns
+    train_df, test_df = train_test_split(df_processed, test_size=test_size, random_state=random_state)
+
+    # Update feature names after one-hot encoding
+    feature_names = train_df.columns.tolist()
+    # The original numeric columns are still present, we only need to scale them.
+    # The new one-hot columns are already on a {0, 1} scale.
 
     # Scale numerics
     scaler = MinMaxScaler()
-    train_df[num_cols + cat_cols] = scaler.fit_transform(train_df[num_cols + cat_cols])
-    test_df[num_cols + cat_cols]  = scaler.transform(test_df[num_cols + cat_cols])
+    train_df[num_cols] = scaler.fit_transform(train_df[num_cols])
+    test_df[num_cols]  = scaler.transform(test_df[num_cols])
 
-    feature_names = num_cols + cat_cols
-
-    return train_df, test_df, {"scaler": scaler, "label_encoders": label_encoders}, feature_names
+    # The concept of label_encoders is no longer needed with one-hot encoding
+    # We return the scaler for potential inverse transforms.
+    return train_df, test_df, {"scaler": scaler}, feature_names
 
 
 # ----------------------------------------------------
@@ -177,11 +185,14 @@ def get_reconstruction_errors(model, dataloader, device="cpu"):
 # ----------------------------------------------------
 # Anomaly Detection
 # ----------------------------------------------------
-def detect_anomalies(errors, z_latent, recon_percentile=97.5, min_distance=0.05):
+def detect_anomalies(errors, recon_percentile=97.5):
+    """
+    Detects anomalies based on reconstruction errors.
+    Anomalies are data points with a reconstruction error above a given percentile.
+    """
     recon_thresh = np.percentile(errors, recon_percentile)
-    distances = np.linalg.norm(z_latent[:, :3], axis=1)
-    is_anom = (errors > recon_thresh) & (distances > min_distance)
-    return is_anom, recon_thresh
+    is_anomaly = errors > recon_thresh
+    return is_anomaly, recon_thresh
 
 
 # ----------------------------------------------------
